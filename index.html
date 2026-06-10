@@ -416,7 +416,7 @@ async function checkEmployee() {
   const salidas  = await fsGetSalidas(hoy);
   const jornadas = await fsGetJornadas(hoy);
 
-  const missSalidas    = salidas.filter(r => r.empleado === emp.nombre);
+  const missSalidas   = salidas.filter(r => r.empleado === emp.nombre);
   const missJornadas  = jornadas.filter(j => j.empleado === emp.nombre);
 
   const afuera         = missSalidas.some(r => r.salida && !r.regreso);
@@ -431,10 +431,10 @@ async function checkEmployee() {
     document.getElementById('banner-msg').textContent = '↑ Actualmente AFUERA';
     banner.className = 'status-banner show afuera';
   } else if (jornadaAbierta) {
-    document.getElementById('banner-msg').textContent = '✒ Jornada activa desde ' + fmt(jornadaAbierta.inicio);
+    document.getElementById('banner-msg').textContent = '✓ Jornada activa desde ' + fmt(jornadaAbierta.inicio);
     banner.className = 'status-banner show adentro';
   } else {
-    document.getElementById('banner-msg').textContent = tieneJornada ? '⛓ Jornada finalizada' : '¡!Hola! Registrá tu jornada';
+    document.getElementById('banner-msg').textContent = tieneJornada ? '✓ Jornada finalizada' : '¡Hola! Registrá tu jornada';
     banner.className = 'status-banner show jornada-ok';
   }
 
@@ -454,7 +454,7 @@ async function checkEmployee() {
   }
 }
 
-// ── JORNADA —──────────────────────────────────────────────────────────
+// ── JORNADA ───────────────────────────────────────────────────────────
 async function registrarJornada(tipo) {
   const empleados = await fsGetEmpleados();
   const emp = empleados.find(e => e.codigo === currentCode);
@@ -469,7 +469,7 @@ async function registrarJornada(tipo) {
       empleado: emp.nombre, fecha: hoy,
       inicio: new Date().toISOString(), fin: null
     });
-    showToast('¡!Buena jornada, ' + emp.nombre + '! ▶', 'purple');
+    showToast('¡Buena jornada, ' + emp.nombre + '! ▶', 'purple');
   } else {
     const abierta = misJ.find(j => j.inicio && !j.fin);
     if (!abierta) return;
@@ -615,7 +615,7 @@ function renderHistory(data) {
   });
 }
 
-anync function renderEmpList() {
+async function renderEmpList() {
   const empleados = await fsGetEmpleados();
   document.getElementById('emp-list').innerHTML = empleados.length
     ? empleados.map(e => `<div class="emp-chip"><span>${e.nombre}</span><span style="color:var(--muted);font-size:0.7rem">#${e.codigo}</span><span class="del-emp" onclick="eliminarEmpleado('${e.docId}','${e.nombre}')">×</span></div>`).join('')
