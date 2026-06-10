@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amapola – Control de Salidas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root {
+    --bg: #0f0e0c; --surface: #1a1916; --card: #222118; --border: #2e2c26;
+    --accent: #e8b84b; --accent2: #d4471c; --text: #f0ede6; --muted: #7a7669;
+    --green: #4caf7d; --red: #e05c3a; --blue: #5b9bd5; --purple: #9b7fd5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.35rem; letter-spacing: 0.08em; color: var(--accent); }
+  .logo span { color: var(--muted); font-weight: 400; font-size: 0.8rem; display: block; letter-spacing: 0.05em; }
+  .nav-tabs { display: flex; gap: 6px; }
+  .nav-tab { padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+  .nav-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
+  .nav-tab:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+  /* Firebase config banner */
+  .config-banner { background: #e8b84b22; border: 1px solid var(--accent); border-radius: 10px; padding: 14px 18px; margin: 18px 28px; font-size: 0.8rem; color: var(--accent); display: none; }
+  .config-banner.show { display: block; }
+  .config-banner strong { font-family: 'Syne', sans-serif; font-size: 0.9rem; display: block; margin-bottom: 6px; }
+  .config-banner a { color: var(--accent); }
+
+  .view { display: none; padding: 32px 28px; max-width: 960px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* ── EMPLEADO ── */
+  .employee-center { display: flex; flex-direction: column; align-items: center; gap: 22px; max-width: 400px; margin: 0 auto; padding-top: 6px; }
+  .time-display { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: var(--accent); letter-spacing: 0.05em; text-align: center; }
+  .date-display { color: var(--muted); font-size: 0.78rem; text-align: center; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .keypad-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; }
+  .keypad-label { font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; text-align: center; }
+  .code-display { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; text-align: center; font-size: 2rem; letter-spacing: 0.3em; font-weight: 500; color: var(--text); margin-bottom: 18px; min-height: 64px; display: flex; align-items: center; justify-content: center; }
+  .code-display.has-value { color: var(--accent); }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .key { aspect-ratio: 1; border: 1px solid var(--border); background: var(--card); color: var(--text); font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 700; border-radius: 10px; cursor: pointer; transition: all 0.1s; display: flex; align-items: center; justify-content: center; }
+  .key:active, .key:hover { background: var(--border); transform: scale(0.96); }
+  .key.del { color: var(--accent2); font-size: 1rem; }
+  .key.zero { grid-column: 2; }
+
+  /* Jornada buttons */
+  .jornada-section { width: 100%; }
+  .jornada-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-family: 'Syne', sans-serif; font-weight: 700; }
+  .jornada-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-jornada { padding: 14px 8px; border-radius: 12px; border: 1.5px solid; font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+  .btn-inicio-j { background: #9b7fd522; border-color: var(--purple); color: var(--purple); }
+  .btn-inicio-j:hover:not(:disabled) { background: var(--purple); color: #fff; }
+  .btn-fin-j { background: #e8b84b22; border-color: var(--accent); color: var(--accent); }
+  .btn-fin-j:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+  .btn-jornada:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  /* Motivos */
+  .motivo-section { width: 100%; }
+  .motivo-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-family: 'Syne', sans-serif; font-weight: 700; }
+  .motivos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .motivo-btn { padding: 10px 8px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; text-align: center; letter-spacing: 0.04em; }
+  .motivo-btn:hover { border-color: var(--accent); color: var(--text); }
+  .motivo-btn.selected { background: #e8b84b22; border-color: var(--accent); color: var(--accent); }
+
+  .action-btn { width: 100%; padding: 16px; border-radius: 12px; border: none; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+  .btn-salir { background: var(--red); color: #fff; }
+  .btn-volver { background: var(--green); color: #fff; }
+  .btn-salir:hover { background: #c94e2f; transform: translateY(-1px); }
+  .btn-volver:hover { background: #3d9966; transform: translateY(-1px); }
+  .action-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; }
+
+  .status-banner { width: 100%; padding: 14px 20px; border-radius: 12px; font-size: 0.85rem; text-align: center; display: none; }
+  .status-banner.show { display: block; }
+  .status-banner.afuera { background: #e05c3a22; border: 1px solid var(--red); color: var(--red); }
+  .status-banner.adentro { background: #4caf7d22; border: 1px solid var(--green); color: var(--green); }
+  .status-banner.jornada-ok { background: #9b7fd522; border: 1px solid var(--purple); color: var(--purple); }
+  .banner-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; }
+
+  /* ── ADMIN ── */
+  .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .admin-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; }
+  .admin-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .admin-date-picker { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; padding: 8px 14px; font-size: 0.8rem; }
+  .admin-date-picker:focus { outline: none; border-color: var(--accent); }
+  .btn-excel { padding: 9px 18px; border-radius: 8px; border: none; background: #1d6f42; color: #fff; font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+  .btn-excel:hover { background: #155233; }
+
+  .live-badge { display: inline-flex; align-items: center; gap: 6px; background: #4caf7d22; border: 1px solid var(--green); border-radius: 20px; padding: 4px 12px; font-size: 0.7rem; color: var(--green); letter-spacing: 0.06em; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: border-color 0.2s; }
+  .emp-card:hover { border-color: var(--accent); }
+  .emp-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .emp-name-big { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; }
+  .emp-code-badge { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; font-size: 0.7rem; color: var(--muted); }
+  .emp-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot-afuera { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot-adentro { background: var(--green); }
+  .dot-sin { background: var(--muted); }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.05em; }
+  .stat-value { font-size: 0.85rem; font-weight: 500; }
+  .stat-value.warning { color: var(--red); }
+  .stat-value.ok { color: var(--green); }
+  .stat-value.purple { color: var(--purple); }
+
+  .section-title { font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* Jornada table */
+  .jornada-table { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+  .jornada-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; padding: 11px 20px; border-bottom: 1px solid var(--border); font-size: 0.78rem; align-items: center; gap: 8px; }
+  .jornada-row:last-child { border-bottom: none; }
+  .jornada-row.head { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
+
+  .history-table { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .history-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr; padding: 12px 20px; border-bottom: 1px solid var(--border); font-size: 0.78rem; align-items: center; gap: 8px; }
+  .history-row:last-child { border-bottom: none; }
+  .history-row.head { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+  .pill-bano { background: #5b9bd522; color: var(--blue); border: 1px solid #5b9bd544; }
+  .pill-fumar { background: #e8b84b22; color: var(--accent); border: 1px solid #e8b84b44; }
+  .pill-comer { background: #4caf7d22; color: var(--green); border: 1px solid #4caf7d44; }
+  .pill-celular { background: #e05c3a22; color: var(--red); border: 1px solid #e05c3a44; }
+  .pill-otro { background: #2e2c2622; color: var(--muted); border: 1px solid var(--border); }
+
+  .setup-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 28px; }
+  .input-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .inp { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; padding: 10px 14px; font-size: 0.82rem; flex: 1; min-width: 140px; }
+  .inp:focus { outline: none; border-color: var(--accent); }
+  .btn-small { padding: 10px 18px; border-radius: 8px; border: none; background: var(--accent); color: var(--bg); font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; text-transform: uppercase; }
+  .emp-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .emp-chip { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; }
+  .del-emp { color: var(--red); cursor: pointer; font-size: 1rem; line-height: 1; }
+  .no-data { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 28px; }
+
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--accent); color: var(--bg); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; padding: 14px 28px; border-radius: 12px; transition: transform 0.3s ease; z-index: 999; white-space: nowrap; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--red); color: #fff; }
+  .toast.success-green { background: var(--green); color: #fff; }
+  .toast.purple { background: var(--purple); color: #fff; }
+
+  @media (max-width: 600px) {
+    .view { padding: 20px 14px; }
+    .header { padding: 14px 16px; }
+    .jornada-row, .history-row { grid-template-columns: 1fr 1fr 1fr; font-size: 0.72rem; padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ BANNER: se muestra si Firebase no está configurado ══ -->
+<div class="config-banner" id="config-banner">
+  <strong>⚠️ Firebase no configurado</strong>
+  Completá los valores de <code>firebaseConfig</code> en el archivo HTML con los datos de tu proyecto Firebase.
+  Seguí las instrucciones en el README o consultá con quien te lo configuró.
+</div>
+
+<div class="header">
+  <div class="logo">🌺 AMAPOLA<span>Control de personal</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchView('empleado', this)">Empleados</button>
+    <button class="nav-tab" onclick="switchView('admin', this)">Admin</button>
+  </div>
+</div>
+
+<!-- ══════════ VISTA EMPLEADO ══════════ -->
+<div class="view active" id="view-empleado">
+  <div class="employee-center">
+
+    <div>
+      <div class="time-display" id="clock">--:--:--</div>
+      <div class="date-display" id="date-display">--</div>
+    </div>
+
+    <!-- Teclado -->
+    <div class="keypad-card">
+      <div class="keypad-label">Ingresá tu código</div>
+      <div class="code-display" id="code-display">_ _ _ _</div>
+      <div class="keypad">
+        <button class="key" onclick="keyPress('1')">1</button>
+        <button class="key" onclick="keyPress('2')">2</button>
+        <button class="key" onclick="keyPress('3')">3</button>
+        <button class="key" onclick="keyPress('4')">4</button>
+        <button class="key" onclick="keyPress('5')">5</button>
+        <button class="key" onclick="keyPress('6')">6</button>
+        <button class="key" onclick="keyPress('7')">7</button>
+        <button class="key" onclick="keyPress('8')">8</button>
+        <button class="key" onclick="keyPress('9')">9</button>
+        <button class="key del" onclick="keyDel()">⌫</button>
+        <button class="key zero" onclick="keyPress('0')">0</button>
+        <button class="key del" onclick="keyClear()">C</button>
+      </div>
+    </div>
+
+    <!-- Banner estado -->
+    <div class="status-banner" id="status-banner">
+      <div class="banner-name" id="banner-name"></div>
+      <div id="banner-msg"></div>
+    </div>
+
+    <!-- Jornada laboral -->
+    <div class="jornada-section" id="jornada-section" style="display:none">
+      <div class="jornada-label">⏱ Jornada laboral</div>
+      <div class="jornada-btns">
+        <button class="btn-jornada btn-inicio-j" id="btn-inicio-j" onclick="registrarJornada('inicio')" disabled>▶ INICIO JORNADA</button>
+        <button class="btn-jornada btn-fin-j" id="btn-fin-j" onclick="registrarJornada('fin')" disabled>■ FIN JORNADA</button>
+      </div>
+    </div>
+
+    <!-- Motivos salida -->
+    <div class="motivo-section" id="motivo-section" style="display:none">
+      <div class="motivo-label">¿Motivo de salida?</div>
+      <div class="motivos">
+        <button class="motivo-btn" onclick="selectMotivo('bano')" id="m-bano">🚽 Baño</button>
+        <button class="motivo-btn" onclick="selectMotivo('fumar')" id="m-fumar">🚬 Fumar</button>
+        <button class="motivo-btn" onclick="selectMotivo('comer')" id="m-comer">🍽️ Comer</button>
+        <button class="motivo-btn" onclick="selectMotivo('celular')" id="m-celular">📱 Celular</button>
+      </div>
+    </div>
+
+    <!-- Acciones salida/regreso -->
+    <div id="salida-section" style="width:100%;display:none">
+      <button class="action-btn btn-salir" id="btn-salir" onclick="registrarSalida()" disabled style="margin-bottom:10px">↑ SALGO</button>
+      <button class="action-btn btn-volver" id="btn-volver" onclick="registrarVuelta()" disabled>↓ VOLVÍ</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ VISTA ADMIN ══════════ -->
+<div class="view" id="view-admin">
+
+  <!-- Setup empleados -->
+  <div class="setup-section">
+    <div class="section-title">👤 Empleados</div>
+    <div class="emp-list" id="emp-list"></div>
+    <div class="input-row">
+      <input class="inp" id="inp-nombre" placeholder="Nombre (ej: Mica)" />
+      <input class="inp" id="inp-codigo" placeholder="Código (ej: 1234)" maxlength="4" style="max-width:130px" />
+      <button class="btn-small" onclick="agregarEmpleado()">+ Agregar</button>
+    </div>
+  </div>
+
+  <!-- Header con fecha + exportar -->
+  <div class="admin-header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="admin-title">Resumen del día</div>
+      <span class="live-badge"><span class="live-dot"></span>EN VIVO</span>
+    </div>
+    <div class="admin-controls">
+      <input type="date" class="admin-date-picker" id="date-picker" onchange="renderAdmin()" />
+      <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Excel</button>
+    </div>
+  </div>
+
+  <!-- Cards resumen -->
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <!-- Tabla jornadas -->
+  <div class="section-title">🕐 Jornadas del día</div>
+  <div class="jornada-table" id="jornada-table">
+    <div class="jornada-row head">
+      <span>Empleado</span><span>Inicio</span><span>Fin</span><span>Horas trabajadas</span><span>Estado</span>
+    </div>
+    <div class="no-data" id="no-jornada">Sin jornadas registradas</div>
+  </div>
+
+  <div style="height:24px"></div>
+
+  <!-- Tabla historial salidas -->
+  <div class="section-title">📋 Salidas del día</div>
+  <div class="history-table" id="history-table">
+    <div class="history-row head">
+      <span>Empleado</span><span>Salida</span><span>Regreso</span><span>Motivo</span><span>Duración</span>
+    </div>
+    <div class="no-data" id="no-data">Sin salidas registradas</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN FIREBASE
+//  1. Ir a https://console.firebase.google.com
+//  2. Crear proyecto → Agregar app web → Copiar los valores aquí
+//  3. En Firestore Database → Reglas → pegar:
+//     rules_version = '2';
+//     service cloud.firestore {
+//       match /databases/{database}/documents {
+//         match /{document=**} { allow read, write: if true; }
+//       }
+//     }
+// ══════════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyCrEXw_5X1C3bIU_OgK-nDwrPSPNHfRGOs",
+  authDomain:        "amapola-personal.firebaseapp.com",
+  projectId:         "amapola-personal",
+  storageBucket:     "amapola-personal.firebasestorage.app",
+  messagingSenderId: "525448021276",
+  appId:             "1:525448021276:web:f204eca8343b962c62a6d9",
+  measurementId:     "G-FCRWGD3HQE"
+};
+
+// ── INIT ─────────────────────────────────────────────────────────────
+let db;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  db.collection('_ping').doc('check').get()
+    .catch(() => document.getElementById('config-banner').classList.add('show'));
+} catch(e) {
+  document.getElementById('config-banner').classList.add('show');
+}
+
+if (firebaseConfig.apiKey === 'REEMPLAZAR') {
+  document.getElementById('config-banner').classList.add('show');
+}
+
+let currentCode   = '';
+let selectedMotivo = null;
+let adminUnsubs   = [];
+let refreshTimer  = null;
+
+// ── FIRESTORE HELPERS ─────────────────────────────────────────────────
+async function fsGetEmpleados() {
+  const snap = await db.collection('empleados').orderBy('nombre').get();
+  return snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+}
+
+async function fsGetSalidas(fecha) {
+  const snap = await db.collection('salidas').where('fecha', '==', fecha).get();
+  return snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+}
+
+async function fsGetJornadas(fecha) {
+  const snap = await db.collection('jornadas').where('fecha', '==', fecha).get();
+  return snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+}
+
+// ── RELOJ ─────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('es-AR');
+  document.getElementById('date-display').textContent = now.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+document.getElementById('date-picker').value = new Date().toISOString().split('T')[0];
+
+// ── VISTAS ────────────────────────────────────────────────────────────
+function switchView(v, btn) {
+  adminUnsubs.forEach(u => u());
+  adminUnsubs = [];
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  btn.classList.add('active');
+  if (v === 'admin') renderAdmin();
+}
+
+// ── TECLADO ───────────────────────────────────────────────────────────
+function keyPress(d) {
+  if (currentCode.length >= 4) return;
+  currentCode += d;
+  updateCodeDisplay();
+  if (currentCode.length === 4) checkEmployee();
+}
+function keyDel()   { currentCode = currentCode.slice(0, -1); updateCodeDisplay(); resetUI(); }
+function keyClear() { currentCode = ''; updateCodeDisplay(); resetUI(); }
+
+function updateCodeDisplay() {
+  const el  = document.getElementById('code-display');
+  const arr = currentCode.split('');
+  while (arr.length < 4) arr.push('_');
+  el.textContent = arr.join(' ');
+  el.classList.toggle('has-value', currentCode.length > 0);
+}
+
+function resetUI() {
+  document.getElementById('status-banner').className = 'status-banner';
+  document.getElementById('jornada-section').style.display  = 'none';
+  document.getElementById('motivo-section').style.display   = 'none';
+  document.getElementById('salida-section').style.display   = 'none';
+  document.getElementById('btn-salir').disabled   = true;
+  document.getElementById('btn-volver').disabled  = true;
+  document.getElementById('btn-inicio-j').disabled = true;
+  document.getElementById('btn-fin-j').disabled    = true;
+}
+
+// ── CHECK EMPLEADO ────────────────────────────────────────────────────
+async function checkEmployee() {
+  let empleados;
+  try { empleados = await fsGetEmpleados(); }
+  catch(e) { showToast('Error de conexión ❌', 'error'); keyClear(); return; }
+
+  const emp = empleados.find(e => e.codigo === currentCode);
+  if (!emp) { showToast('Código incorrecto ❌', 'error'); keyClear(); return; }
+
+  const hoy      = new Date().toISOString().split('T')[0];
+  const salidas  = await fsGetSalidas(hoy);
+  const jornadas = await fsGetJornadas(hoy);
+
+  const missSalidas    = salidas.filter(r => r.empleado === emp.nombre);
+  const missJornadas  = jornadas.filter(j => j.empleado === emp.nombre);
+
+  const afuera         = missSalidas.some(r => r.salida && !r.regreso);
+  const jornadaAbierta = missJornadas.find(j => j.inicio && !j.fin);
+  const jornadaCerrada = missJornadas.find(j => j.inicio && j.fin);
+  const tieneJornada   = missJornadas.length > 0;
+
+  // Banner
+  const banner = document.getElementById('status-banner');
+  document.getElementById('banner-name').textContent = emp.nombre;
+  if (afuera) {
+    document.getElementById('banner-msg').textContent = '↑ Actualmente AFUERA';
+    banner.className = 'status-banner show afuera';
+  } else if (jornadaAbierta) {
+    document.getElementById('banner-msg').textContent = '✒ Jornada activa desde ' + fmt(jornadaAbierta.inicio);
+    banner.className = 'status-banner show adentro';
+  } else {
+    document.getElementById('banner-msg').textContent = tieneJornada ? '⛓ Jornada finalizada' : '¡!Hola! Registrá tu jornada';
+    banner.className = 'status-banner show jornada-ok';
+  }
+
+  document.getElementById('jornada-section').style.display = 'block';
+  document.getElementById('btn-inicio-j').disabled = tieneJornada;
+  document.getElementById('btn-fin-j').disabled    = !jornadaAbierta || !!jornadaCerrada;
+
+  if (!afuera && jornadaAbierta) {
+    document.getElementById('motivo-section').style.display = 'block';
+    document.getElementById('salida-section').style.display = 'block';
+    document.getElementById('btn-salir').disabled  = false;
+    document.getElementById('btn-volver').disabled = true;
+  } else if (afuera) {
+    document.getElementById('salida-section').style.display = 'block';
+    document.getElementById('btn-salir').disabled  = true;
+    document.getElementById('btn-volver').disabled = false;
+  }
+}
+
+// ── JORNADA —──────────────────────────────────────────────────────────
+async function registrarJornada(tipo) {
+  const empleados = await fsGetEmpleados();
+  const emp = empleados.find(e => e.codigo === currentCode);
+  if (!emp) return;
+
+  const hoy      = new Date().toISOString().split('T')[0];
+  const jornadas = await fsGetJornadas(hoy);
+  const misJ     = jornadas.filter(j => j.empleado === emp.nombre);
+
+  if (tipo === 'inicio') {
+    await db.collection('jornadas').add({
+      empleado: emp.nombre, fecha: hoy,
+      inicio: new Date().toISOString(), fin: null
+    });
+    showToast('¡!Buena jornada, ' + emp.nombre + '! ▶', 'purple');
+  } else {
+    const abierta = misJ.find(j => j.inicio && !j.fin);
+    if (!abierta) return;
+    const fin = new Date().toISOString();
+    await db.collection('jornadas').doc(abierta.docId).update({ fin });
+    showToast('Jornada cerrada. ' + duracion(abierta.inicio, fin) + ' trabajados ✓', 'purple');
+  }
+  reset();
+}
+
+// ── SALIDAS ───────────────────────────────────────────────────────────
+function selectMotivo(m) {
+  selectedMotivo = m;
+  document.querySelectorAll('.motivo-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('m-' + m).classList.add('selected');
+}
+
+async function registrarSalida() {
+  if (!selectedMotivo) { showToast('Seleccioná un motivo primero', 'error'); return; }
+  const empleados = await fsGetEmpleados();
+  const emp = empleados.find(e => e.codigo === currentCode);
+  if (!emp) return;
+  await db.collection('salidas').add({
+    empleado: emp.nombre,
+    fecha:    new Date().toISOString().split('T')[0],
+    salida:   new Date().toISOString(),
+    regreso:  null,
+    motivo:   selectedMotivo
+  });
+  showToast('¡Hasta pronto, ' + emp.nombre + '! 👋', 'success-green');
+  reset();
+}
+
+async function registrarVuelta() {
+  const empleados = await fsGetEmpleados();
+  const emp = empleados.find(e => e.codigo === currentCode);
+  if (!emp) return;
+  const hoy     = new Date().toISOString().split('T')[0];
+  const salidas = await fsGetSalidas(hoy);
+  const abierta = salidas.find(r => r.empleado === emp.nombre && r.salida && !r.regreso);
+  if (!abierta) return;
+  const regreso = new Date().toISOString();
+  await db.collection('salidas').doc(abierta.docId).update({ regreso });
+  showToast('Bienvenido/a, ' + emp.nombre + '! ' + duracion(abierta.salida, regreso) + ' afuera 🕐', 'success-green');
+  reset();
+}
+
+function reset() {
+  currentCode = ''; selectedMotivo = null;
+  updateCodeDisplay(); resetUI();
+  document.querySelectorAll('.motivo-btn').forEach(b => b.classList.remove('selected'));
+}
+
+// ── ADMIN (tiempo real) ───────────────────────────────────────────────
+function renderAdmin() {
+  adminUnsubs.forEach(u => u());
+  adminUnsubs = [];
+
+  const fecha = document.getElementById('date-picker').value;
+  renderEmpList();
+
+  // Listener en salidas del día
+  const u1 = db.collection('salidas').where('fecha', '==', fecha).onSnapshot(() => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refreshAdminData(fecha), 300);
+  });
+
+  // Listener en jornadas del día
+  const u2 = db.collection('jornadas').where('fecha', '==', fecha).onSnapshot(() => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refreshAdminData(fecha), 300);
+  });
+
+  adminUnsubs.push(u1, u2);
+}
+
+async function refreshAdminData(fecha) {
+  const [data, jornadas, empleados] = await Promise.all([
+    fsGetSalidas(fecha),
+    fsGetJornadas(fecha),
+    fsGetEmpleados()
+  ]);
+  renderSummary(empleados, data, jornadas);
+  renderJornadas(jornadas);
+  renderHistory(data);
+}
+
+function renderSummary(empleados, data, jornadas) {
+  const grid = document.getElementById('summary-grid');
+  if (!empleados.length) { grid.innerHTML = '<div class="no-data">No hay empleados</div>'; return; }
+  grid.innerHTML = empleados.map(emp => {
+    const regs      = data.filter(r => r.empleado === emp.nombre);
+    const jorn      = jornadas.find(j => j.empleado === emp.nombre && j.inicio);
+    const afuera    = regs.some(r => r.salida && !r.regreso);
+    const completos = regs.filter(r => r.regreso);
+    const totalMin  = Math.round(completos.reduce((a,r) => a + (new Date(r.regreso) - new Date(r.salida)), 0) / 60000);
+    const motivos   = {};
+    regs.forEach(r => { motivos[r.motivo] = (motivos[r.motivo]||0) + 1; });
+    const top        = Object.entries(motivos).sort((a,b) => b[1]-a[1])[0];
+    const dotClass   = afuera ? 'dot-afuera' : (jorn ? 'dot-adentro' : 'dot-sin');
+    const horasTrab  = jorn && jorn.fin ? duracion(jorn.inicio, jorn.fin) : (jorn ? 'en curso' : '—');
+    return `<div class="emp-card">
+      <div class="emp-card-header">
+        <span class="emp-name-big"><span class="emp-status-dot ${dotClass}"></span>${emp.nombre}</span>
+        <span class="emp-code-badge">#${emp.codigo}</span>
+      </div>
+      <div class="stat-row"><span class="stat-label">Jornada</span><span class="stat-value purple">${jorn ? (jorn.fin ? 'cerrada' : 'activa') : 'sin registrar'}</span></div>
+      <div class="stat-row"><span class="stat-label">Horas trabajadas</span><span class="stat-value">${horasTrab}</span></div>
+      <div class="stat-row"><span class="stat-label">Salidas hoy</span><span class="stat-value">${regs.length}</span></div>
+      <div class="stat-row"><span class="stat-label">Tiempo afuera</span><span class="stat-value ${totalMin>30?'warning':'ok'}">${totalMin} min</span></div>
+      <div class="stat-row"><span class="stat-label">Motivo frecuente</span><span class="stat-value">${top?top[0]:'—'}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderJornadas(jornadas) {
+  const table  = document.getElementById('jornada-table');
+  const noData = document.getElementById('no-jornada');
+  table.querySelectorAll('.data-jrow').forEach(r => r.remove());
+  noData.style.display = jornadas.length ? 'none' : 'block';
+  jornadas.slice().sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(j => {
+    const div = document.createElement('div');
+    div.className = 'jornada-row data-jrow';
+    const dur    = j.fin ? duracion(j.inicio, j.fin) : '<span style="color:var(--green)">en curso</span>';
+    const estado = j.fin ? '<span style="color:var(--muted)">cerrada</span>' : '<span style="color:var(--green)">activa ●</span>';
+    div.innerHTML = `<span>${j.empleado}</span><span>${fmt(j.inicio)}</span><span>${j.fin?fmt(j.fin):'—'}</span><span>${dur}</span><span>${estado}</span>`;
+    table.appendChild(div);
+  });
+}
+
+function renderHistory(data) {
+  const table  = document.getElementById('history-table');
+  const noData = document.getElementById('no-data');
+  table.querySelectorAll('.data-row').forEach(r => r.remove());
+  const rows = data.slice().sort((a,b) => new Date(b.salida) - new Date(a.salida));
+  noData.style.display = rows.length ? 'none' : 'block';
+  rows.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'history-row data-row';
+    const dur = r.regreso ? duracion(r.salida, r.regreso) : '<span style="color:var(--red)">afuera</span>';
+    div.innerHTML = `<span>${r.empleado}</span><span>${fmt(r.salida)}</span><span>${r.regreso?fmt(r.regreso):'—'}</span><span><span class="pill pill-${r.motivo}">${r.motivo}</span></span><span>${dur}</span>`;
+    table.appendChild(div);
+  });
+}
+
+anync function renderEmpList() {
+  const empleados = await fsGetEmpleados();
+  document.getElementById('emp-list').innerHTML = empleados.length
+    ? empleados.map(e => `<div class="emp-chip"><span>${e.nombre}</span><span style="color:var(--muted);font-size:0.7rem">#${e.codigo}</span><span class="del-emp" onclick="eliminarEmpleado('${e.docId}','${e.nombre}')">×</span></div>`).join('')
+    : '<span style="color:var(--muted);font-size:0.78rem">Sin empleados</span>';
+}
+
+async function agregarEmpleado() {
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  const codigo = document.getElementById('inp-codigo').value.trim();
+  if (!nombre || codigo.length < 3) { showToast('Nombre y código (mín. 3 dígitos)', 'error'); return; }
+  const empleados = await fsGetEmpleados();
+  if (empleados.find(e => e.codigo === codigo)) { showToast('Ese código ya existe', 'error'); return; }
+  await db.collection('empleados').add({ nombre, codigo });
+  document.getElementById('inp-nombre').value = '';
+  document.getElementById('inp-codigo').value = '';
+  renderEmpList();
+  showToast(nombre + ' agregado/a ✓');
+}
+
+async function eliminarEmpleado(docId, nombre) {
+  await db.collection('empleados').doc(docId).delete();
+  renderEmpList();
+  showToast(nombre + ' eliminado/a');
+}
+
+// ── EXPORTAR EXCEL ────────────────────────────────────────────────────
+async function exportarExcel() {
+  const fecha     = document.getElementById('date-picker').value;
+  const [data, jornadas, empleados] = await Promise.all([
+    fsGetSalidas(fecha), fsGetJornadas(fecha), fsGetEmpleados()
+  ]);
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen
+  const resumen = [['Empleado','Código','Inicio Jornada','Fin Jornada','Horas Trabajadas','Cant. Salidas','Min. Fuera','Motivo Frecuente']];
+  empleados.forEach(emp => {
+    const regs      = data.filter(r => r.empleado === emp.nombre);
+    const jorn      = jornadas.find(j => j.empleado === emp.nombre && j.inicio);
+    const completos = regs.filter(r => r.regreso);
+    const totalMin  = Math.round(completos.reduce((a,r) => a + (new Date(r.regreso)-new Date(r.salida)), 0) / 60000);
+    const motivos   = {};
+    regs.forEach(r => { motivos[r.motivo] = (motivos[r.motivo]||0)+1; });
+    const top = Object.entries(motivos).sort((a,b) => b[1]-a[1])[0];
+    resumen.push([
+      emp.nombre, emp.codigo,
+      jorn ? fmt(jorn.inicio) : '',
+      jorn && jorn.fin ? fmt(jorn.fin) : '',
+      jorn && jorn.fin ? durDecimal(jorn.inicio, jorn.fin) : '',
+      regs.length, totalMin,
+      top ? top[0] : ''
+    ]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(resumen);
+  ws1['!cols'] = [14,8,14,14,16,14,12,16].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+
+  // Hoja 2: Jornadas
+  const sj = [['Empleado','Fecha','Inicio Jornada','Fin Jornada','Horas Trabajadas','Estado']];
+  jornadas.forEach(j => sj.push([
+    j.empleado, j.fecha, fmt(j.inicio),
+    j.fin ? fmt(j.fin) : '',
+    j.fin ? durDecimal(j.inicio, j.fin) : '',
+    j.fin ? 'Cerrada' : 'Activa'
+  ]));
+  const ws2 = XLSX.utils.aoa_to_sheet(sj);
+  ws2['!cols'] = [14,12,14,14,16,10].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws2, 'Jornadas');
+
+  // Hoja 3: Detalle salidas
+  const det = [['Empleado','Fecha','Hora Salida','Hora Regreso','Motivo','Duración (min)']];
+  data.slice().sort((a,b) => new Date(a.salida)-new Date(b.salida)).forEach(r => {
+    const durMin = r.regreso ? Math.round((new Date(r.regreso)-new Date(r.salida))/60000) : '';
+    det.push([r.empleado, r.fecha, fmt(r.salida), r.regreso?fmt(r.regreso):'', r.motivo, durMin]);
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(det);
+  ws3['!cols'] = [14,12,12,12,10,14].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws3, 'Salidas');
+
+  XLSX.writeFile(wb, 'amapola_personal_' + fecha + '.xlsx');
+  showToast('Excel exportado ✓', 'success-green');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────
+function duracion(inicio, fin) {
+  const ms  = new Date(fin) - new Date(inicio);
+  const h   = Math.floor(ms / 3600000);
+  const min = Math.floor((ms % 3600000) / 60000);
+  const sec = Math.floor((ms % 60000) / 1000);
+  if (h > 0) return h + 'h ' + min + 'm';
+  if (min === 0) return sec + 's';
+  return min + 'm ' + sec + 's';
+}
+function durDecimal(inicio, fin) {
+  return ((new Date(fin) - new Date(inicio)) / 3600000).toFixed(2);
+}
+function fmt(iso) {
+  return new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+renderEmpList();
+</script>
+</body>
+</html>
