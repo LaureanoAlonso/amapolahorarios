@@ -419,9 +419,14 @@ async function checkEmployee() {
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) { showToast('Código incorrecto ❌', 'error'); keyClear(); return; }
 
-  const hoy      = localDate();
-  const salidas  = await fsGetSalidas(hoy);
-  const jornadas = await fsGetJornadas(hoy);
+  const hoy  = localDate();
+  const ayer = localDate(new Date(Date.now() - 86400000));
+  const [salidasHoy, jornadasHoy, salidasAyer, jornadasAyer] = await Promise.all([
+    fsGetSalidas(hoy), fsGetJornadas(hoy),
+    fsGetSalidas(ayer), fsGetJornadas(ayer)
+  ]);
+  const salidas  = [...salidasHoy,  ...salidasAyer];
+  const jornadas = [...jornadasHoy, ...jornadasAyer];
 
   const missSalidas   = salidas.filter(r => r.empleado === emp.nombre);
   const missJornadas  = jornadas.filter(j => j.empleado === emp.nombre);
@@ -467,9 +472,10 @@ async function registrarJornada(tipo) {
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) return;
 
-  const hoy      = localDate();
-  const jornadas = await fsGetJornadas(hoy);
-  const misJ     = jornadas.filter(j => j.empleado === emp.nombre);
+  const hoy  = localDate();
+  const ayer = localDate(new Date(Date.now() - 86400000));
+  const [jornadasHoy, jornadasAyer] = await Promise.all([fsGetJornadas(hoy), fsGetJornadas(ayer)]);
+  const misJ = [...jornadasHoy, ...jornadasAyer].filter(j => j.empleado === emp.nombre);
 
   if (tipo === 'inicio') {
     await db.collection('jornadas').add({
@@ -514,8 +520,10 @@ async function registrarVuelta() {
   const empleados = await fsGetEmpleados();
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) return;
-  const hoy     = localDate();
-  const salidas = await fsGetSalidas(hoy);
+  const hoy  = localDate();
+  const ayer = localDate(new Date(Date.now() - 86400000));
+  const [salidasHoy, salidasAyer] = await Promise.all([fsGetSalidas(hoy), fsGetSalidas(ayer)]);
+  const salidas = [...salidasHoy, ...salidasAyer];
   const abierta = salidas.find(r => r.empleado === emp.nombre && r.salida && !r.regreso);
   if (!abierta) return;
   const regreso = new Date().toISOString();
