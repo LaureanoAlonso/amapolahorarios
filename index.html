@@ -353,6 +353,13 @@ async function fsGetJornadas(fecha) {
   return snap.docs.map(d => ({ docId: d.id, ...d.data() }));
 }
 
+// ── FECHA LOCAL (evita salto de día por UTC) ───────────────────────────
+function localDate(d) {
+  const t = d || new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+}
+
 // ── RELOJ ─────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -361,7 +368,7 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
-document.getElementById('date-picker').value = new Date().toISOString().split('T')[0];
+document.getElementById('date-picker').value = localDate();
 
 // ── VISTAS ────────────────────────────────────────────────────────────
 function switchView(v, btn) {
@@ -412,7 +419,7 @@ async function checkEmployee() {
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) { showToast('Código incorrecto ❌', 'error'); keyClear(); return; }
 
-  const hoy      = new Date().toISOString().split('T')[0];
+  const hoy      = localDate();
   const salidas  = await fsGetSalidas(hoy);
   const jornadas = await fsGetJornadas(hoy);
 
@@ -460,7 +467,7 @@ async function registrarJornada(tipo) {
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) return;
 
-  const hoy      = new Date().toISOString().split('T')[0];
+  const hoy      = localDate();
   const jornadas = await fsGetJornadas(hoy);
   const misJ     = jornadas.filter(j => j.empleado === emp.nombre);
 
@@ -494,7 +501,7 @@ async function registrarSalida() {
   if (!emp) return;
   await db.collection('salidas').add({
     empleado: emp.nombre,
-    fecha:    new Date().toISOString().split('T')[0],
+    fecha:    localDate(),
     salida:   new Date().toISOString(),
     regreso:  null,
     motivo:   selectedMotivo
@@ -507,7 +514,7 @@ async function registrarVuelta() {
   const empleados = await fsGetEmpleados();
   const emp = empleados.find(e => e.codigo === currentCode);
   if (!emp) return;
-  const hoy     = new Date().toISOString().split('T')[0];
+  const hoy     = localDate();
   const salidas = await fsGetSalidas(hoy);
   const abierta = salidas.find(r => r.empleado === emp.nombre && r.salida && !r.regreso);
   if (!abierta) return;
