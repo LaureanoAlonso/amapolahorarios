@@ -428,13 +428,17 @@ async function checkEmployee() {
   const salidas  = [...salidasHoy,  ...salidasAyer];
   const jornadas = [...jornadasHoy, ...jornadasAyer];
 
-  const missSalidas   = salidas.filter(r => r.empleado === emp.nombre);
-  const missJornadas  = jornadas.filter(j => j.empleado === emp.nombre);
+  const missSalidas      = salidas.filter(r => r.empleado === emp.nombre);
+  // jornadas de ambos días (para encontrar una abierta que cruzó medianoche)
+  const missJornadasHoy  = jornadasHoy.filter(j => j.empleado === emp.nombre);
+  const missJornadasAyer = jornadasAyer.filter(j => j.empleado === emp.nombre);
+  const missJornadas     = [...missJornadasHoy, ...missJornadasAyer];
 
   const afuera         = missSalidas.some(r => r.salida && !r.regreso);
   const jornadaAbierta = missJornadas.find(j => j.inicio && !j.fin);
-  const jornadaCerrada = missJornadas.find(j => j.inicio && j.fin);
-  const tieneJornada   = missJornadas.length > 0;
+  // cerrada y tieneJornada solo miran HOY para no bloquear con registros de ayer
+  const jornadaCerrada = missJornadasHoy.find(j => j.inicio && j.fin);
+  const tieneJornada   = missJornadasHoy.length > 0;
 
   // Banner
   const banner = document.getElementById('status-banner');
