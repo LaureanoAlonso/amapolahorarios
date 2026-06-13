@@ -158,6 +158,30 @@
     .header { padding: 14px 16px; }
     .jornada-row, .history-row { grid-template-columns: 1fr 1fr 1fr; font-size: 0.72rem; padding: 10px 12px; }
   }
+
+  /* ── MODALES ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; position: relative; transform: translateY(16px); transition: transform 0.2s; }
+  .modal-overlay.show .modal-box { transform: translateY(0); }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 800; margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 18px; background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-field { margin-bottom: 14px; }
+  .modal-label { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: block; }
+  .modal-input { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; padding: 10px 14px; font-size: 0.82rem; }
+  .modal-input:focus { outline: none; border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-modal-save { flex: 1; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: var(--bg); font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.08em; cursor: pointer; }
+  .btn-modal-cancel { padding: 12px 18px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 0.85rem; cursor: pointer; }
+  .btn-modal-cancel:hover { color: var(--text); border-color: var(--muted); }
+  .pwd-error { color: var(--red); font-size: 0.75rem; margin-top: 8px; display: none; }
+
+  /* ── BOTÓN EDITAR EN FILAS ── */
+  .btn-edit-row { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 0.7rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-edit-row:hover { border-color: var(--accent); color: var(--accent); }
+  .jornada-row { grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr 50px !important; }
+  .history-row { grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.8fr 50px !important; }
 </style>
 </head>
 <body>
@@ -274,7 +298,7 @@
   <div class="section-title">🕐 Jornadas del día</div>
   <div class="jornada-table" id="jornada-table">
     <div class="jornada-row head">
-      <span>Empleado</span><span>Inicio</span><span>Fin</span><span>Horas trabajadas</span><span>Estado</span>
+      <span>Empleado</span><span>Inicio</span><span>Fin</span><span>Horas trabajadas</span><span>Estado</span><span></span>
     </div>
     <div class="no-data" id="no-jornada">Sin jornadas registradas</div>
   </div>
@@ -285,11 +309,49 @@
   <div class="section-title">📋 Salidas del día</div>
   <div class="history-table" id="history-table">
     <div class="history-row head">
-      <span>Empleado</span><span>Salida</span><span>Regreso</span><span>Motivo</span><span>Duración</span>
+      <span>Empleado</span><span>Salida</span><span>Regreso</span><span>Motivo</span><span>Duración</span><span></span>
     </div>
     <div class="no-data" id="no-data">Sin salidas registradas</div>
   </div>
 
+</div>
+
+<!-- ══ MODAL CONTRASEÑA ADMIN ══ -->
+<div class="modal-overlay" id="modal-password">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closePasswordModal()">×</button>
+    <div class="modal-title">🔒 Acceso Admin</div>
+    <div class="modal-field">
+      <label class="modal-label">Contraseña</label>
+      <input class="modal-input" id="pwd-input" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') checkAdminPassword()" />
+      <div class="pwd-error" id="pwd-error">Contraseña incorrecta</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closePasswordModal()">Cancelar</button>
+      <button class="btn-modal-save" onclick="checkAdminPassword()">Ingresar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL EDICIÓN REGISTRO ══ -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeEditModal()">×</button>
+    <div class="modal-title" id="edit-modal-title">Editar registro</div>
+    <div class="modal-field">
+      <label class="modal-label" id="edit-field1-label">Campo 1</label>
+      <input class="modal-input" id="edit-field1" type="datetime-local" />
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" id="edit-field2-label">Campo 2</label>
+      <input class="modal-input" id="edit-field2" type="datetime-local" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn-modal-save" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -332,10 +394,13 @@ if (firebaseConfig.apiKey === 'REEMPLAZAR') {
   document.getElementById('config-banner').classList.add('show');
 }
 
-let currentCode   = '';
+let currentCode    = '';
 let selectedMotivo = null;
-let adminUnsubs   = [];
-let refreshTimer  = null;
+let adminUnsubs    = [];
+let refreshTimer   = null;
+let adminUnlocked  = false;
+let pendingAdminBtn = null;
+let editingDoc     = null;
 
 // ── FIRESTORE HELPERS ─────────────────────────────────────────────────
 async function fsGetEmpleados() {
@@ -372,6 +437,14 @@ document.getElementById('date-picker').value = localDate();
 
 // ── VISTAS ────────────────────────────────────────────────────────────
 function switchView(v, btn) {
+  if (v === 'admin' && !adminUnlocked) {
+    pendingAdminBtn = btn;
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-error').style.display = 'none';
+    document.getElementById('modal-password').classList.add('show');
+    setTimeout(() => document.getElementById('pwd-input').focus(), 80);
+    return;
+  }
   adminUnsubs.forEach(u => u());
   adminUnsubs = [];
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
@@ -379,6 +452,72 @@ function switchView(v, btn) {
   document.getElementById('view-' + v).classList.add('active');
   btn.classList.add('active');
   if (v === 'admin') renderAdmin();
+  if (v === 'empleado') adminUnlocked = false; // lock on exit
+}
+
+// ── PASSWORD ADMIN ─────────────────────────────────────────────────────
+function checkAdminPassword() {
+  if (document.getElementById('pwd-input').value === 'amapola716') {
+    adminUnlocked = true;
+    closePasswordModal();
+    adminUnsubs.forEach(u => u());
+    adminUnsubs = [];
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-admin').classList.add('active');
+    if (pendingAdminBtn) pendingAdminBtn.classList.add('active');
+    renderAdmin();
+  } else {
+    document.getElementById('pwd-error').style.display = 'block';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
+function closePasswordModal() {
+  document.getElementById('modal-password').classList.remove('show');
+}
+
+// ── EDICIÓN REGISTROS ─────────────────────────────────────────────────
+function isoToLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function openEditJornada(docId, inicioISO, finISO) {
+  editingDoc = { col: 'jornadas', docId, f1: 'inicio', f2: 'fin' };
+  document.getElementById('edit-modal-title').textContent = '✏️ Editar jornada';
+  document.getElementById('edit-field1-label').textContent = 'Inicio jornada';
+  document.getElementById('edit-field2-label').textContent = 'Fin jornada';
+  document.getElementById('edit-field1').value = isoToLocal(inicioISO);
+  document.getElementById('edit-field2').value = isoToLocal(finISO);
+  document.getElementById('modal-edit').classList.add('show');
+}
+function openEditSalida(docId, salidaISO, regresoISO) {
+  editingDoc = { col: 'salidas', docId, f1: 'salida', f2: 'regreso' };
+  document.getElementById('edit-modal-title').textContent = '✏️ Editar salida';
+  document.getElementById('edit-field1-label').textContent = 'Hora salida';
+  document.getElementById('edit-field2-label').textContent = 'Hora regreso';
+  document.getElementById('edit-field1').value = isoToLocal(salidaISO);
+  document.getElementById('edit-field2').value = isoToLocal(regresoISO);
+  document.getElementById('modal-edit').classList.add('show');
+}
+async function saveEdit() {
+  if (!editingDoc) return;
+  const v1 = document.getElementById('edit-field1').value;
+  const v2 = document.getElementById('edit-field2').value;
+  if (!v1) { showToast('El campo de inicio/salida es obligatorio', 'error'); return; }
+  const update = {};
+  update[editingDoc.f1] = new Date(v1).toISOString();
+  update[editingDoc.f2] = v2 ? new Date(v2).toISOString() : null;
+  await db.collection(editingDoc.col).doc(editingDoc.docId).update(update);
+  closeEditModal();
+  showToast('Registro actualizado ✓', 'success-green');
+  renderAdmin();
+}
+function closeEditModal() {
+  document.getElementById('modal-edit').classList.remove('show');
+  editingDoc = null;
 }
 
 // ── TECLADO ───────────────────────────────────────────────────────────
@@ -614,7 +753,9 @@ function renderJornadas(jornadas) {
     div.className = 'jornada-row data-jrow';
     const dur    = j.fin ? duracion(j.inicio, j.fin) : '<span style="color:var(--green)">en curso</span>';
     const estado = j.fin ? '<span style="color:var(--muted)">cerrada</span>' : '<span style="color:var(--green)">activa ●</span>';
-    div.innerHTML = `<span>${j.empleado}</span><span>${fmt(j.inicio)}</span><span>${j.fin?fmt(j.fin):'—'}</span><span>${dur}</span><span>${estado}</span>`;
+    const ini = j.inicio ? j.inicio.replace(/'/g,"") : '';
+    const fin = j.fin    ? j.fin.replace(/'/g,"")    : '';
+    div.innerHTML = `<span>${j.empleado}</span><span>${fmt(j.inicio)}</span><span>${j.fin?fmt(j.fin):'—'}</span><span>${dur}</span><span>${estado}</span><span><button class="btn-edit-row" onclick="openEditJornada('${j.docId}','${ini}','${fin}')">✏️</button></span>`;
     table.appendChild(div);
   });
 }
@@ -629,7 +770,9 @@ function renderHistory(data) {
     const div = document.createElement('div');
     div.className = 'history-row data-row';
     const dur = r.regreso ? duracion(r.salida, r.regreso) : '<span style="color:var(--red)">afuera</span>';
-    div.innerHTML = `<span>${r.empleado}</span><span>${fmt(r.salida)}</span><span>${r.regreso?fmt(r.regreso):'—'}</span><span><span class="pill pill-${r.motivo}">${r.motivo}</span></span><span>${dur}</span>`;
+    const sal = r.salida  ? r.salida.replace(/'/g,"")  : '';
+    const reg = r.regreso ? r.regreso.replace(/'/g,"") : '';
+    div.innerHTML = `<span>${r.empleado}</span><span>${fmt(r.salida)}</span><span>${r.regreso?fmt(r.regreso):'—'}</span><span><span class="pill pill-${r.motivo}">${r.motivo}</span></span><span>${dur}</span><span><button class="btn-edit-row" onclick="openEditSalida('${r.docId}','${sal}','${reg}')">✏️</button></span>`;
     table.appendChild(div);
   });
 }
