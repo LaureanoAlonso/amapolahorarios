@@ -178,10 +178,13 @@
   .pwd-error { color: var(--red); font-size: 0.75rem; margin-top: 8px; display: none; }
 
   /* ── BOTÓN EDITAR EN FILAS ── */
-  .btn-edit-row { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 0.7rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-edit-row { padding: 4px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 0.7rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
   .btn-edit-row:hover { border-color: var(--accent); color: var(--accent); }
-  .jornada-row { grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr 50px !important; }
-  .history-row { grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.8fr 50px !important; }
+  .btn-del-row { padding: 4px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 0.7rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-del-row:hover { border-color: var(--red); color: var(--red); }
+  .row-actions { display: flex; gap: 4px; }
+  .jornada-row { grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr 72px !important; }
+  .history-row { grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.8fr 72px !important; }
 </style>
 </head>
 <body>
@@ -755,7 +758,7 @@ function renderJornadas(jornadas) {
     const estado = j.fin ? '<span style="color:var(--muted)">cerrada</span>' : '<span style="color:var(--green)">activa ●</span>';
     const ini = j.inicio ? j.inicio.replace(/'/g,"") : '';
     const fin = j.fin    ? j.fin.replace(/'/g,"")    : '';
-    div.innerHTML = `<span>${j.empleado}</span><span>${fmt(j.inicio)}</span><span>${j.fin?fmt(j.fin):'—'}</span><span>${dur}</span><span>${estado}</span><span><button class="btn-edit-row" onclick="openEditJornada('${j.docId}','${ini}','${fin}')">✏️</button></span>`;
+    div.innerHTML = `<span>${j.empleado}</span><span>${fmt(j.inicio)}</span><span>${j.fin?fmt(j.fin):'—'}</span><span>${dur}</span><span>${estado}</span><span class="row-actions"><button class="btn-edit-row" onclick="openEditJornada('${j.docId}','${ini}','${fin}')">✏️</button><button class="btn-del-row" onclick="deleteRegistro('jornadas','${j.docId}')">🗑️</button></span>`;
     table.appendChild(div);
   });
 }
@@ -772,7 +775,7 @@ function renderHistory(data) {
     const dur = r.regreso ? duracion(r.salida, r.regreso) : '<span style="color:var(--red)">afuera</span>';
     const sal = r.salida  ? r.salida.replace(/'/g,"")  : '';
     const reg = r.regreso ? r.regreso.replace(/'/g,"") : '';
-    div.innerHTML = `<span>${r.empleado}</span><span>${fmt(r.salida)}</span><span>${r.regreso?fmt(r.regreso):'—'}</span><span><span class="pill pill-${r.motivo}">${r.motivo}</span></span><span>${dur}</span><span><button class="btn-edit-row" onclick="openEditSalida('${r.docId}','${sal}','${reg}')">✏️</button></span>`;
+    div.innerHTML = `<span>${r.empleado}</span><span>${fmt(r.salida)}</span><span>${r.regreso?fmt(r.regreso):'—'}</span><span><span class="pill pill-${r.motivo}">${r.motivo}</span></span><span>${dur}</span><span class="row-actions"><button class="btn-edit-row" onclick="openEditSalida('${r.docId}','${sal}','${reg}')">✏️</button><button class="btn-del-row" onclick="deleteRegistro('salidas','${r.docId}')">🗑️</button></span>`;
     table.appendChild(div);
   });
 }
@@ -780,7 +783,7 @@ function renderHistory(data) {
 async function renderEmpList() {
   const empleados = await fsGetEmpleados();
   document.getElementById('emp-list').innerHTML = empleados.length
-    ? empleados.map(e => `<div class="emp-chip"><span>${e.nombre}</span><span style="color:var(--muted);font-size:0.7rem">#${e.codigo}</span><span class="del-emp" onclick="eliminarEmpleado('${e.docId}','${e.nombre}')">×</span></div>`).join('')
+    ? empleados.map(e => `<div class="emp-chip"><span>${e.nombre}</span><span style="color:var(--muted);font-size:0.7rem">#${e.codigo}</span><button class="btn-del-row" style="border:none;background:none;padding:2px 4px;font-size:0.85rem" onclick="eliminarEmpleado('${e.docId}','${e.nombre}')">🗑️</button></div>`).join('')
     : '<span style="color:var(--muted);font-size:0.78rem">Sin empleados</span>';
 }
 
@@ -797,10 +800,20 @@ async function agregarEmpleado() {
   showToast(nombre + ' agregado/a ✓');
 }
 
-async function eliminarEmpleado(docId, nombre) {
-  await db.collection('empleados').doc(docId).delete();
-  renderEmpList();
-  showToast(nombre + ' eliminado/a');
+function eliminarEmpleado(docId, nombre) {
+  requirePassword(async () => {
+    await db.collection('empleados').doc(docId).delete();
+    renderEmpList();
+    showToast(nombre + ' eliminado/a');
+  });
+}
+
+function deleteRegistro(col, docId) {
+  requirePassword(async () => {
+    await db.collection(col).doc(docId).delete();
+    showToast('Registro eliminado ✓', 'success-green');
+    renderAdmin();
+  });
 }
 
 // ── EXPORTAR EXCEL ────────────────────────────────────────────────────
