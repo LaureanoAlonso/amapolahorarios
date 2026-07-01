@@ -888,7 +888,7 @@ function durDecimal(inicio, fin) {
   return ((new Date(fin) - new Date(inicio)) / 3600000).toFixed(2);
 }
 function fmt(iso) {
-  return new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+  return new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', hour12:false });
 }
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
