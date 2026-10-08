@@ -462,16 +462,26 @@ updateClock();
 document.getElementById('date-picker').value = localDate();
 
 // ── TIMER DESCANSO ────────────────────────────────────────────────────
-function startDescansoTimer(desde) {
+function startDescansoTimer(desde, minutosAcumPrevios) {
 clearInterval(timerInterval);
 const timerEl = document.getElementById('descanso-timer');
 const timerText = document.getElementById('timer-text');
 timerEl.style.display = 'block';
+const prevMs = (minutosAcumPrevios || 0) * 60000;
 timerInterval = setInterval(function() {
-const min = Math.floor((Date.now() - desde) / 60000);
-const sec = Math.floor(((Date.now() - desde) % 60000) / 1000);
-timerText.textContent = String(min).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
-timerEl.className = 'descanso-timer' + (min >= DESCANSO_MAX_MIN ? ' warning' : '');
+const msActual = Date.now() - desde;
+const totalMs = prevMs + msActual;
+const totalMin = Math.floor(totalMs / 60000);
+const totalSec = Math.floor((totalMs % 60000) / 1000);
+const restante = DESCANSO_MAX_MIN - totalMin;
+const timerStr = String(totalMin).padStart(2,'0') + ':' + String(totalSec).padStart(2,'0');
+if (totalMin >= DESCANSO_MAX_MIN) {
+timerText.textContent = '⚠ ' + timerStr + ' · Excediste el límite';
+timerEl.className = 'descanso-timer warning';
+} else {
+timerText.textContent = timerStr + ' · Te quedan ' + restante + ' min';
+timerEl.className = 'descanso-timer';
+}
 }, 1000);
 }
 function stopDescansoTimer() {
@@ -630,15 +640,29 @@ const jornadaAbierta = misJornadas.find(j => j.inicio && !j.fin);
 const jornadaCerrada = misJornadasHoy.find(j => j.inicio && j.fin);
 const tieneJornada = misJornadasHoy.length > 0;
 
+// Calcular minutos acumulados de descanso en la jornada actual
+const jornadaRef = jornadaAbierta || jornadaCerrada;
+const inicioJornada = jornadaRef ? new Date(jornadaRef.inicio) : null;
+const salidasDeEstaJornada = inicioJornada
+? misSalidas.filter(r => r.salida && new Date(r.salida) >= inicioJornada)
+: [];
+const minutosAcumCompletos = salidasDeEstaJornada
+.filter(r => r.regreso)
+.reduce((acc, r) => acc + (new Date(r.regreso) - new Date(r.salida)) / 60000, 0);
+const descActivo = salidasDeEstaJornada.find(r => r.salida && !r.regreso);
+const minutosAcumTotal = minutosAcumCompletos + (descActivo ? (Date.now() - new Date(descActivo.salida)) / 60000 : 0);
+const acumExcedido = minutosAcumTotal >= DESCANSO_MAX_MIN;
+
 // Banner
 const banner = document.getElementById('status-banner');
 document.getElementById('banner-name').textContent = emp.nombre;
 if (enDescanso) {
-const desc = misSalidas.find(r => r.salida && !r.regreso);
-const minutos = Math.round((Date.now() - new Date(desc.salida)) / 60000);
-document.getElementById('banner-msg').textContent = '☕ En descanso hace ' + minutos + ' min';
+const desc = descActivo;
+const minAcumMostrar = Math.round(minutosAcumTotal);
+const restante = Math.max(0, DESCANSO_MAX_MIN - minAcumMostrar);
+document.getElementById('banner-msg').textContent = '☕ Descanso acumulado: ' + minAcumMostrar + ' min · Quedan ' + restante + ' min';
 banner.className = 'status-banner show descanso';
-startDescansoTimer(new Date(desc.salida).getTime());
+startDescansoTimer(new Date(desc.salida).getTime(), Math.round(minutosAcumCompletos));
 } else if (jornadaAbierta) {
 document.getElementById('banner-msg').textContent = '✓ En turno desde ' + fmt(jornadaAbierta.inicio);
 banner.className = 'status-banner show adentro';
@@ -653,8 +677,11 @@ document.getElementById('btn-fin-j').disabled = !jornadaAbierta || !!jornadaCerr
 
 if (jornadaAbierta && !enDescanso) {
 document.getElementById('accion-section').style.display = 'block';
-document.getElementById('btn-descanso').disabled = false;
+document.getElementById('btn-descanso').disabled = acumExcedido;
 document.getElementById('btn-vuelta').disabled = true;
+if (acumExcedido) {
+showToast('Ya usaste los 60 min de descanso permitidos hoy 🚫', 'error');
+}
 } else if (enDescanso) {
 document.getElementById('accion-section').style.display = 'block';
 document.getElementById('btn-descanso').disabled = true;
@@ -711,9 +738,18 @@ const abierta = [...salidasHoy, ...salidasAyer].find(r => r.empleado === emp.nom
 if (!abierta) return;
 
 const regreso = new Date().toISOString();
-const minTotales = (new Date(regreso) - new Date(abierta.salida)) / 60000;
-const excedido = minTotales > DESCANSO_MAX_MIN;
-const minutosExtra = excedido ? minTotales - DESCANSO_MAX_MIN : 0;
+// Calcular acumulado de descansos previos (completos) en esta jornada
+const jornadaHoy2 = (await fsGetJornadas(hoy)).filter(j => j.empleado === emp.nombre);
+const jornadaAyer2 = (await fsGetJornadas(ayer)).filter(j => j.empleado === emp.nombre);
+const jornadaRefV = [...jornadaHoy2, ...jornadaAyer2].find(j => j.inicio && !j.fin) || [...jornadaHoy2, ...jornadaAyer2].find(j => j.inicio && j.fin);
+const inicioJornadaV = jornadaRefV ? new Date(jornadaRefV.inicio) : null;
+const salidasPrevias = [...salidasHoy, ...salidasAyer]
+.filter(r => r.empleado === emp.nombre && r.regreso && inicioJornadaV && new Date(r.salida) >= inicioJornadaV);
+const minutosAcumPrevios = salidasPrevias.reduce((acc, r) => acc + (new Date(r.regreso) - new Date(r.salida)) / 60000, 0);
+const minEsteDescanso = (new Date(regreso) - new Date(abierta.salida)) / 60000;
+const minTotalesAcum = minutosAcumPrevios + minEsteDescanso;
+const excedido = minTotalesAcum > DESCANSO_MAX_MIN;
+const minutosExtra = excedido ? minTotalesAcum - DESCANSO_MAX_MIN : 0;
 
 await db.collection('salidas').doc(abierta.docId).update({ regreso, excedido, minutosExtra: Math.round(minutosExtra) });
 
@@ -731,7 +767,9 @@ ts: new Date().toISOString()
 const excesos = await fsGetExcesosDelMes(emp.nombre);
 mostrarModalExceso(emp.nombre, minutosExtra, excesos.length);
 } else {
-showToast('Bienvenido/a, ' + emp.nombre + '! ' + duracion(abierta.salida, regreso) + ' de descanso ✓', 'success-green');
+const minAcumRedondeado = Math.round(minTotalesAcum);
+const restante = Math.max(0, DESCANSO_MAX_MIN - minAcumRedondeado);
+showToast('Bienvenido/a, ' + emp.nombre + '! Te tomaste ' + minAcumRedondeado + ' min acumulados · Te quedan ' + restante + ' min ✓', 'success-green');
 }
 reset();
 }
