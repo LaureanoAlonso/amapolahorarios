@@ -145,18 +145,19 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monosp
 .stat-value.warning { color: var(--red); }
 .stat-value.ok { color: var(--green); }
 .stat-value.purple { color: var(--purple); }
-.stat-value.orange { color: vuted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
+.stat-value.orange { color: var(--orange); }
 
-.pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
-.pill-descanso { background: #e8934b22; color: var(--orange); border: 1px solid #e8934b44; }
-.pill-ingreso  { background: #4caf7d22; color: var(--green);  border: 1px solid #4caf7d44; }
-.pill-salida   { background: #e05c3a22; color: var(--red);    border: 1px solid #e05c3a44; }
+.section-title { font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
 
-.setup-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 28px; }
-.input-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-.inp { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; padding: 10px 14px; font-size: 0.82rem; flex: 1; min-width: 140px; }
-.inp:focus { outline: none; border-color: var(--accent); }
-.btn-small { padding: 10px 18px; border-radius: 8px; border: none; background: var(--accent); coluted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
+.jornada-table { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+.jornada-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr 72px; padding: 11px 20px; border-bottom: 1px solid var(--border); font-size: 0.78rem; align-items: center; gap: 8px; }
+.jornada-row:last-child { border-bottom: none; }
+.jornada-row.head { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
+
+.history-table { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.history-row { display: grid; grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.8fr 72px; padding: 12px 20px; border-bottom: 1px solid var(--border); font-size: 0.78rem; align-items: center; gap: 8px; }
+.history-row:last-child { border-bottom: none; }
+.history-row.head { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--card); }
 
 .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
 .pill-descanso { background: #e8934b22; color: var(--orange); border: 1px solid #e8934b44; }
@@ -344,7 +345,33 @@ Completá los valores de <code>firebaseConfig</code> en el archivo HTML.
 <div class="modal-title">🔒 Acceso Admin</div>
 <div class="modal-field">
 <label class="modal-label">Contraseña</label>
-<input class="modal-input" id="pwd-="saveEdit()">Guardar</button>
+<input class="modal-input" id="pwd-input" type="password" placeholder="••••••••"
+onkeydown="if(event.key==='Enter') checkAdminPassword()" />
+<div class="pwd-error" id="pwd-error">Contraseña incorrecta</div>
+</div>
+<div class="modal-actions">
+<button class="btn-modal-cancel" onclick="closePasswordModal()">Cancelar</button>
+<button class="btn-modal-save" onclick="checkAdminPassword()">Ingresar</button>
+</div>
+</div>
+</div>
+
+<!-- Modal edición registro -->
+<div class="modal-overlay" id="modal-edit">
+<div class="modal-box">
+<button class="modal-close" onclick="closeEditModal()">×</button>
+<div class="modal-title" id="edit-modal-title">Editar registro</div>
+<div class="modal-field">
+<label class="modal-label" id="edit-field1-label">Campo 1</label>
+<input class="modal-input" id="edit-field1" type="datetime-local" />
+</div>
+<div class="modal-field">
+<label class="modal-label" id="edit-field2-label">Campo 2</label>
+<input class="modal-input" id="edit-field2" type="datetime-local" />
+</div>
+<div class="modal-actions">
+<button class="btn-modal-cancel" onclick="closeEditModal()">Cancelar</button>
+<button class="btn-modal-save" onclick="saveEdit()">Guardar</button>
 </div>
 </div>
 </div>
@@ -418,14 +445,23 @@ return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
 // ── RELOJ ─────────────────────────────────────────────────────────────
 function updateClock() {
 const now = new Date();
+const pad = n => String(n).padStart(2,'0');
+try {
 document.getElementById('clock').textContent = now.toLocaleTimeString('es-AR');
+} catch(e) {
+document.getElementById('clock').textContent = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+}
+try {
 document.getElementById('date-display').textContent = now.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+} catch(e) {
+document.getElementById('date-display').textContent = localDate();
+}
 }
 setInterval(updateClock, 1000);
 updateClock();
 document.getElementById('date-picker').value = localDate();
 
-// ── TIMER DESCANSO ───────────────────────────────────────────────────
+// ── TIMER DESCANSO ────────────────────────────────────────────────────
 function startDescansoTimer(desde) {
 clearInterval(timerInterval);
 const timerEl = document.getElementById('descanso-timer');
@@ -445,13 +481,24 @@ document.getElementById('descanso-timer').style.display = 'none';
 
 // ── VISTAS ─────────────────────────────────────────────────────────────
 function switchView(v, btn) {
+if (v === 'admin') {
+requirePassword(() => {
+adminUnsubs.forEach(u => u());
+adminUnsubs = [];
+document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+document.getElementById('view-admin').classList.add('active');
+btn.classList.add('active');
+renderAdmin();
+});
+return;
+}
 adminUnsubs.forEach(u => u());
 adminUnsubs = [];
 document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
 document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
 document.getElementById('view-' + v).classList.add('active');
 btn.classList.add('active');
-if (v === 'admin') renderAdmin();
 }
 
 // ── PASSWORD ──────────────────────────────────────────────────────────
@@ -517,37 +564,6 @@ const update = {};
 update[editingDoc.f1] = new Date(v1).toISOString();
 update[editingDoc.f2] = v2 ? new Date(v2).toISOString() : null;
 await db.collection(editingDoc.col).doc(editingDoc.docId).update(update);
-closeEditModal();
-showToast('Registro actualizado ✓', 'success-green');
-renderAdmin();
-}
-function closeEditModal() {
-document.getElementById('modal-edit').classList.remove('show');
-editingDoc = null;
-}
-
-// ── TECLADO ───────────────────────────────────────────────────────────
-function keyPress(d) {
-if (currentCode.length >= 4) return;
-currentCode += d;
-updateCodeDisplay();
-if (currentCode.length === 4) checkEmployee();
-}
-function keyDel() { currentCode = currentCode.slice(0, -1); updateCodeDisplay(); resetUI(); }
-function keyClear() { currentCode = ''; updateCodeDisplay(); resetUI(); }
-
-function updateCodeDisplay() {
-const el = document.getElementById('code-display');
-const arr = currentCode.split('');
-while (arr.length < 4) arr.push('_');
-el.textContent = arr.join(' ');
-el.classList.toggle('has-value', currentCode.length > 0);
-}
-
-function resetUI() {
-stopDescansoTimer();
-document.getElementById('status-banner').className = 'status-banner';
-document.getElementById('jornada-sectiodate);
 closeEditModal();
 showToast('Registro actualizado ✓', 'success-green');
 renderAdmin();
